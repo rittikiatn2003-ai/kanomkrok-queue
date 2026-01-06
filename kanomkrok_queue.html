@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>คิวขนมครก</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{font-family:sans-serif;background:#fff3e0;margin:0;padding:15px}
+h1{text-align:center;font-size:32px}
+.item{background:#fff;border-radius:12px;padding:10px;margin-bottom:8px;font-size:18px}
+.row{display:flex;justify-content:space-between;align-items:center}
+.btn{font-size:20px;padding:6px 12px;border:none;border-radius:8px}
+.add{background:#ff9800;color:#fff}
+.sub{background:#ccc}
+.done{background:#e53935;color:#fff}
+.queue-box{background:#fff;border-radius:12px;padding:10px;margin-bottom:10px}
+.summary{background:#fff;border-radius:12px;padding:15px;margin-top:15px;font-size:18px}
+</style>
+</head>
+<body>
+
+<h1>🍡 คิวขนมครก</h1>
+
+<div id="orderBox"></div>
+<button class="btn add" style="width:100%" onclick="addQueue()">➕ เพิ่มคิว</button>
+
+<div id="queueList"></div>
+
+<div class="summary">
+<b>📊 ยอดขายวันนี้</b><br>
+หอม: <span id="s_hom">0</span> |
+เผือก: <span id="s_pueak">0</span> |
+ข้าวโพด: <span id="s_corn">0</span> |
+รวม: <span id="s_mix">0</span><br><br>
+
+<b>💰 เงินรวม:</b> <span id="total">0</span> บาท<br>
+<b>🏆 ขายดีที่สุด:</b> <span id="best">-</span><br><br>
+
+<button class="btn" onclick="exportCSV()">📤 Excel</button>
+<button class="btn" onclick="shareLine()">📤 LINE</button>
+<button class="btn" onclick="resetDay()">เริ่มวันใหม่</button>
+</div>
+
+<script>
+const flavors=["หอม","เผือก","ข้าวโพด","รวม"];
+let prices={"หอม":20,"เผือก":20,"ข้าวโพด":20,"รวม":25};
+
+let queue=JSON.parse(localStorage.getItem("queue"))||[];
+let summary=JSON.parse(localStorage.getItem("summary"))||{"หอม":0,"เผือก":0,"ข้าวโพด":0,"รวม":0};
+let qnum=JSON.parse(localStorage.getItem("qnum"))||1;
+
+let current={"หอม":0,"เผือก":0,"ข้าวโพด":0,"รวม":0};
+
+function save(){
+localStorage.setItem("queue",JSON.stringify(queue));
+localStorage.setItem("summary",JSON.stringify(summary));
+localStorage.setItem("qnum",qnum);
+}
+
+function renderOrder(){
+orderBox.innerHTML="";
+flavors.forEach(f=>{
+orderBox.innerHTML+=`
+<div class="item row">
+${f}
+<div>
+<button class="btn sub" onclick="change('${f}',-1)">−</button>
+<b>${current[f]}</b>
+<button class="btn add" onclick="change('${f}',1)">+</button>
+</div>
+</div>`;
+});
+}
+function change(f,n){
+current[f]=Math.max(0,current[f]+n);
+renderOrder();
+}
+
+function addQueue(){
+let items={};
+let has=false;
+flavors.forEach(f=>{
+if(current[f]>0){items[f]=current[f];has=true;summary[f]+=current[f];}
+});
+if(!has){alert("ยังไม่ได้เลือกออเดอร์");return;}
+queue.push({num:qnum,items});
+qnum++;
+current={"หอม":0,"เผือก":0,"ข้าวโพด":0,"รวม":0};
+save();
+render();
+renderOrder();
+}
+
+function render(){
+queueList.innerHTML="";
+queue.forEach((q,i)=>{
+let list="";
+for(let f in q.items){list+=`${f} x ${q.items[f]}<br>`;}
+queueList.innerHTML+=`
+<div class="queue-box">
+<b>คิว ${q.num}</b><br>${list}
+<button class="btn done" onclick="finish(${i})">เสร็จแล้ว</button>
+</div>`;
+});
+calc();
+}
+
+function finish(i){
+queue.splice(i,1);
+save();
+render();
+}
+
+function calc(){
+let total=0,max=0,best=[];
+for(let f in summary){
+document.getElementById("s_"+(f=="เผือก"?"pueak":f=="ข้าวโพด"?"corn":f=="รวม"?"mix":"hom")).innerText=summary[f];
+total+=summary[f]*prices[f];
+if(summary[f]>max){max=summary[f];best=[f];}
+else if(summary[f]==max&&max>0)best.push(f);
+}
+document.getElementById("total").innerText=total;
+document.getElementById("best").innerText=best.join(", ")||"-";
+}
+
+function exportCSV(){
+let csv="ไส้,จำนวน,ราคา,เงิน\n";
+for(let f in summary){csv+=`${f},${summary[f]},${prices[f]},${summary[f]*prices[f]}\n`;}
+let a=document.createElement("a");
+a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+a.download="kanomkrok_today.csv";a.click();
+}
+
+function shareLine(){
+let t="สรุปยอดขนมครกวันนี้\n";
+for(let f in summary){t+=`${f}: ${summary[f]} คิว\n`;}
+t+=`รวม ${total.innerText} บาท`;
+navigator.share?navigator.share({text:t}):alert(t);
+}
+
+function resetDay(){
+if(!confirm("เริ่มวันใหม่?"))return;
+queue=[];summary={"หอม":0,"เผือก":0,"ข้าวโพด":0,"รวม":0};qnum=1;
+save();render();
+}
+
+renderOrder();render();
+</script>
+
+</body>
+</html>
